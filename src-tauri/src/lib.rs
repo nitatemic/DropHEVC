@@ -12,8 +12,9 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(AppState {
+        .manage(commands::AppState {
             encoding_lock: Arc::new(Mutex::new(())),
+            encoder_args: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             commands::check_ffmpeg,

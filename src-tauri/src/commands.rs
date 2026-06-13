@@ -5,10 +5,11 @@ use tauri::{AppHandle, State, Emitter};
 use tokio::process::Command;
 use std::process::Stdio;
 
-use crate::ffmpeg::{get_ffmpeg_path, get_media_duration, download_ffmpeg};
+use crate::ffmpeg::{get_ffmpeg_path, get_media_duration, download_ffmpeg, detect_best_hevc_encoder};
 
 pub struct AppState {
     pub encoding_lock: Arc<Mutex<()>>,
+    pub encoder_args: Arc<Mutex<Option<Vec<String>>>>,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -57,18 +58,24 @@ pub async fn convert_video(
     
     let output_path = output_dir_buf.join(format!("{}_hevc.mp4", file_stem));
     
+    let mut encoder_args = Vec::new();
+    {
+        let mut cache = state.encoder_args.lock().await;
+        if cache.is_none() {
+            *cache = Some(detect_best_hevc_encoder(&ffmpeg_path).await);
+        }
+        if let Some(ref args) = *cache {
+            encoder_args = args.clone();
+        }
+    }
+
     let mut child = Command::new(&ffmpeg_path)
         .arg("-y") // Overwrite for now, or change filename if exists
         .arg("-i")
         .arg(&input_path)
-        .arg("-c:v")
-        .arg("libx265")
+        .args(&encoder_args)
         .arg("-tag:v")
         .arg("hvc1")
-        .arg("-preset")
-        .arg("medium")
-        .arg("-crf")
-        .arg("23")
         .arg("-c:a")
         .arg("copy")
         .arg(&output_path)

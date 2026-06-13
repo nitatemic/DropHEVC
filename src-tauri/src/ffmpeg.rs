@@ -123,3 +123,53 @@ pub async fn get_media_duration(app: &AppHandle, file_path: &str) -> Result<f64,
     
     Err("Could not determine duration".into())
 }
+
+pub async fn detect_best_hevc_encoder(ffmpeg_path: &PathBuf) -> Vec<String> {
+    let encoders = vec![
+        ("hevc_videotoolbox", vec!["-q:v", "50"]),
+        ("hevc_nvenc", vec!["-preset", "p4", "-cq", "26"]),
+        ("hevc_amf", vec!["-quality", "balanced", "-rc", "cqp", "-qp_i", "26", "-qp_p", "26"]),
+        ("hevc_qsv", vec!["-global_quality", "26", "-preset", "medium"]),
+    ];
+
+    for (enc, args) in encoders {
+        let output = tokio::process::Command::new(ffmpeg_path)
+            .arg("-v")
+            .arg("error")
+            .arg("-f")
+            .arg("lavfi")
+            .arg("-i")
+            .arg("color=black:s=108x108")
+            .arg("-c:v")
+            .arg(enc)
+            .arg("-frames:v")
+            .arg("1")
+            .arg("-f")
+            .arg("null")
+            .arg("-")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .await;
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                let mut result = vec!["-c:v".to_string(), enc.to_string()];
+                for arg in args {
+                    result.push(arg.to_string());
+                }
+                return result;
+            }
+        }
+    }
+
+    // Fallback to software encoder
+    vec![
+        "-c:v".to_string(),
+        "libx265".to_string(),
+        "-preset".to_string(),
+        "medium".to_string(),
+        "-crf".to_string(),
+        "23".to_string(),
+    ]
+}
