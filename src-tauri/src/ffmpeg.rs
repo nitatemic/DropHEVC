@@ -27,28 +27,29 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
-    let local_data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
-    if !local_data_dir.exists() {
-        fs::create_dir_all(&local_data_dir).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    {
+        return Err("Sur Linux, veuillez installer ffmpeg via votre gestionnaire de paquets (ex: sudo apt install ffmpeg).".into());
     }
 
-    #[cfg(target_os = "windows")]
-    let url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
-    #[cfg(target_os = "macos")]
-    let url = "https://evermeet.cx/ffmpeg/ffmpeg-116843-g4a2d82bf4f.zip"; // Replace with dynamic if possible
-    #[cfg(target_os = "linux")]
-    let url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz";
-
-    // For simplicity in MVP, we just download the zip on Windows. 
-    // On Mac/Linux, this might require different extraction logic.
-    let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
-    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-
-    let temp_zip_path = local_data_dir.join("ffmpeg.zip");
-    fs::write(&temp_zip_path, &bytes).map_err(|e| e.to_string())?;
-
-    #[cfg(target_os = "windows")]
+    #[cfg(not(target_os = "linux"))]
     {
+        let local_data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+        if !local_data_dir.exists() {
+            fs::create_dir_all(&local_data_dir).map_err(|e| e.to_string())?;
+        }
+
+        #[cfg(target_os = "windows")]
+        let url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
+        #[cfg(target_os = "macos")]
+        let url = "https://evermeet.cx/ffmpeg/ffmpeg-116843-g4a2d82bf4f.zip";
+
+        let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
+        let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+
+        let temp_zip_path = local_data_dir.join("ffmpeg.zip");
+        fs::write(&temp_zip_path, &bytes).map_err(|e| e.to_string())?;
+
         let file = fs::File::open(&temp_zip_path).map_err(|e| e.to_string())?;
         let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
         
@@ -61,24 +62,35 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
             };
 
             if let Some(name) = outpath.file_name() {
-                if name == "ffmpeg.exe" {
-                    let mut outfile = fs::File::create(local_data_dir.join("ffmpeg.exe")).map_err(|e| e.to_string())?;
+                let name_str = name.to_string_lossy();
+                if name_str == "ffmpeg.exe" || name_str == "ffmpeg" {
+                    let exe_name = if cfg!(target_os = "windows") { "ffmpeg.exe" } else { "ffmpeg" };
+                    let out_path = local_data_dir.join(exe_name);
+                    let mut outfile = fs::File::create(&out_path).map_err(|e| e.to_string())?;
                     std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
+                    
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let mut perms = fs::metadata(&out_path).unwrap().permissions();
+                        perms.set_mode(0o755);
+                        fs::set_permissions(&out_path, perms).unwrap();
+                    }
+                    
                     extracted = true;
                     break;
                 }
             }
         }
         
+        let _ = fs::remove_file(&temp_zip_path);
+
         if !extracted {
-            return Err("ffmpeg.exe not found in downloaded archive".into());
+            return Err("Executable ffmpeg introuvable dans l'archive téléchargée".into());
         }
+
+        Ok(())
     }
-
-    // Cleanup
-    let _ = fs::remove_file(&temp_zip_path);
-
-    Ok(())
 }
 
 pub async fn get_media_duration(app: &AppHandle, file_path: &str) -> Result<f64, String> {
