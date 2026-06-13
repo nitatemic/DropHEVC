@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DropHEVC</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="main.js" defer></script>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>DropHEVC</h1>
+        <p>Convertissez vos vidéos pour Apple/iOS en toute simplicité</p>
+      </header>
+
+      <main>
+        <div id="missing-ffmpeg-banner" class="hidden">
+          <p>FFmpeg n'est pas détecté. L'application a besoin de FFmpeg pour fonctionner.</p>
+          <button id="download-ffmpeg-btn">Télécharger FFmpeg automatiquement</button>
+        </div>
+
+        <div id="dropzone" class="dropzone">
+          <div class="dropzone-content">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Glissez-déposez vos vidéos ici</p>
+            <span class="or">ou</span>
+            <button id="select-files-btn">Parcourir les fichiers</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="settings">
+            <label>
+              <input type="checkbox" id="same-folder-check" checked>
+              Sauvegarder dans le même dossier
+            </label>
+            <div id="output-folder-group" class="hidden">
+              <button id="select-output-btn">Choisir le dossier de sortie</button>
+              <span id="output-folder-path"></span>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="start-queue-btn" disabled>Lancer l'encodage</button>
+            <button id="pause-queue-btn" class="hidden">Pause</button>
+          </div>
+        </div>
+
+        <div id="queue-list" class="queue-list">
+          <!-- Files will be injected here -->
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
