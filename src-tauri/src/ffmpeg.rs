@@ -1,9 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 use tauri::{AppHandle, Manager};
 use std::fs;
-use std::io::Write;
 
 pub fn get_ffmpeg_path(app: &AppHandle) -> Option<PathBuf> {
     // Check if it's alongside the executable or in the local data dir

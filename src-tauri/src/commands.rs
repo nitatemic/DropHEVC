@@ -4,7 +4,6 @@ use tokio::sync::Mutex;
 use tauri::{AppHandle, State, Emitter};
 use tokio::process::Command;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::ffmpeg::{get_ffmpeg_path, get_media_duration, download_ffmpeg};
 
@@ -78,46 +77,65 @@ pub async fn convert_video(
         .spawn()
         .map_err(|e| e.to_string())?;
 
-    let stderr = child.stderr.take().unwrap();
-    let mut reader = BufReader::new(stderr).lines();
-
+    let mut stderr = child.stderr.take().unwrap();
+    
     let app_handle = app.clone();
     let id_clone = id.clone();
     
     // Spawn a task to read stderr and emit progress
     tokio::spawn(async move {
-        while let Ok(Some(line)) = reader.next_line().await {
-            // parse line like "frame= 100 fps= 30 q=28.0 size= 1024kB time=00:00:10.50 bitrate= 800.0kbits/s speed=1.5x"
-            if let Some(time_idx) = line.find("time=") {
-                let time_str = &line[time_idx + 5..time_idx + 16];
-                let parts: Vec<&str> = time_str.split(':').collect();
-                if parts.len() == 3 {
-                    let h: f64 = parts[0].parse().unwrap_or(0.0);
-                    let m: f64 = parts[1].parse().unwrap_or(0.0);
-                    let s: f64 = parts[2].parse().unwrap_or(0.0);
-                    let current_time = h * 3600.0 + m * 60.0 + s;
-                    
-                    let mut speed_str = "1x".to_string();
-                    if let Some(speed_idx) = line.find("speed=") {
-                        let mut end_idx = speed_idx + 6;
-                        while end_idx < line.len() && &line[end_idx..end_idx+1] != " " {
-                            end_idx += 1;
+        use tokio::io::AsyncReadExt;
+        let mut buffer = [0; 1024];
+        let mut current_line = String::new();
+        
+        while let Ok(n) = stderr.read(&mut buffer).await {
+            if n == 0 { break; }
+            let chunk = String::from_utf8_lossy(&buffer[..n]);
+            for c in chunk.chars() {
+                if c == '\r' || c == '\n' {
+                    if let Some(time_idx) = current_line.find("time=") {
+                        // Extract time string safely
+                        let time_start = time_idx + 5;
+                        let mut time_end = time_start;
+                        while time_end < current_line.len() && current_line[time_end..].chars().next().unwrap() != ' ' {
+                            time_end += 1;
                         }
-                        speed_str = line[speed_idx + 6..end_idx].to_string();
+                        let time_str = &current_line[time_start..time_end];
+                        
+                        let parts: Vec<&str> = time_str.split(':').collect();
+                        if parts.len() == 3 {
+                            let h: f64 = parts[0].parse().unwrap_or(0.0);
+                            let m: f64 = parts[1].parse().unwrap_or(0.0);
+                            let s: f64 = parts[2].parse().unwrap_or(0.0);
+                            let current_time = h * 3600.0 + m * 60.0 + s;
+                            
+                            let mut speed_str = "1x".to_string();
+                            if let Some(speed_idx) = current_line.find("speed=") {
+                                let speed_start = speed_idx + 6;
+                                let mut speed_end = speed_start;
+                                while speed_end < current_line.len() && current_line[speed_end..].chars().next().unwrap() != ' ' {
+                                    speed_end += 1;
+                                }
+                                speed_str = current_line[speed_start..speed_end].to_string();
+                            }
+
+                            let progress = if duration > 0.0 {
+                                (current_time / duration) * 100.0
+                            } else {
+                                0.0
+                            };
+
+                            let _ = app_handle.emit(&format!("progress_{}", id_clone), ProgressEvent {
+                                id: id_clone.clone(),
+                                progress,
+                                speed: speed_str,
+                                time: time_str.to_string(),
+                            });
+                        }
                     }
-
-                    let progress = if duration > 0.0 {
-                        (current_time / duration) * 100.0
-                    } else {
-                        0.0
-                    };
-
-                    let _ = app_handle.emit(&format!("progress_{}", id_clone), ProgressEvent {
-                        id: id_clone.clone(),
-                        progress,
-                        speed: speed_str,
-                        time: time_str.to_string(),
-                    });
+                    current_line.clear();
+                } else {
+                    current_line.push(c);
                 }
             }
         }
@@ -133,7 +151,7 @@ pub async fn convert_video(
 }
 
 #[tauri::command]
-pub async fn cancel_conversion(id: String) -> Result<(), String> {
+pub async fn cancel_conversion(_id: String) -> Result<(), String> {
     // To implement cancellation properly, we'd need to store the ChildProcess in the state
     // and call kill() on it. For MVP, we'll let the frontend kill via a system command or 
     // keep track of running processes.

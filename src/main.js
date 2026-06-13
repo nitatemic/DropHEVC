@@ -2,7 +2,7 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 async function openDialog(options) {
-  return await invoke("plugin:dialog|open", options);
+  return await invoke("plugin:dialog|open", { options });
 }
 
 let queue = [];
@@ -219,9 +219,19 @@ startBtn.addEventListener("click", async () => {
   isEncoding = false;
   updateStartButton();
   
-  // Notification visuelle
-  alert("Tous les encodages terminés !");
+  // Notification visuelle dans la fenêtre principale
+  const successBanner = document.getElementById("success-banner");
+  if (successBanner) {
+    successBanner.classList.remove("hidden");
+  }
 });
+
+const closeSuccessBtn = document.getElementById("close-success-btn");
+if (closeSuccessBtn) {
+  closeSuccessBtn.addEventListener("click", () => {
+    document.getElementById("success-banner").classList.add("hidden");
+  });
+}
 
 function updateItemDOM(id, status) {
   const el = document.getElementById(`item-${id}`);

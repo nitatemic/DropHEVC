@@ -24,8 +24,8 @@ body {
   background-color: var(--bg-color);
   color: var(--text-main);
   font-family: var(--font-family);
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -33,17 +33,24 @@ body {
 #app {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   padding: 24px;
+}
+
+@media (max-height: 700px) {
+  #app {
+    height: auto;
+    min-height: 100vh;
+  }
 }
 
 header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 header h1 {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 800;
   background: linear-gradient(135deg, #a5b4fc, #6366f1);
   -webkit-background-clip: text;
@@ -53,21 +60,21 @@ header h1 {
 
 header p {
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  overflow: hidden;
+  gap: 20px;
+  min-height: 0; /* Important for flex child with overflow */
 }
 
 .dropzone {
   border: 2px dashed var(--border-color);
   border-radius: var(--radius);
-  padding: 48px 24px;
+  padding: 32px 24px;
   text-align: center;
   background: var(--bg-panel);
   backdrop-filter: blur(10px);
@@ -76,6 +83,7 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .dropzone.dragover {
@@ -145,12 +153,16 @@ button:disabled {
   background: var(--bg-panel);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 16px;
+  flex-shrink: 0;
 }
 
 .settings {
   display: flex;
   align-items: center;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .settings label {
@@ -276,4 +288,41 @@ button:disabled {
 #missing-ffmpeg-banner p {
   color: #fca5a5;
   font-weight: 500;
+}
+
+#success-banner {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: slideDown 0.3s ease;
+}
+
+#success-banner svg {
+  color: var(--success);
+}
+
+#success-banner p {
+  color: #6ee7b7;
+  font-weight: 500;
+  flex: 1;
+}
+
+#close-success-btn {
+  background: transparent;
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+#close-success-btn:hover {
+  background: var(--success);
+  color: white;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

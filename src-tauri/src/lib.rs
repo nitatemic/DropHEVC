@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tauri::Manager;
 
 pub mod ffmpeg;
 pub mod commands;
