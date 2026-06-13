@@ -1,74 +1,66 @@
 # DropHEVC
 
-DropHEVC est une application de bureau multiplateforme (Windows, macOS, Linux) permettant de convertir des vidéos en HEVC (H.265) de manière optimisée pour les écosystèmes Apple/iOS.
+DropHEVC is a fast, beautiful, and cross-platform desktop application (Windows, macOS, Linux) designed to easily convert videos to HEVC (H.265). It automatically optimizes the output for the Apple ecosystem (macOS/iOS natively supported).
 
-## Choix Techniques
+## Features
 
-*   **Tauri 2** : Framework léger et performant offrant un backend natif en Rust et un frontend web.
-*   **Backend (Rust)** : Orchestration des tâches, gestion des processus système (FFmpeg), parsing en temps réel de la progression pour une interface fluide sans bloquage.
-*   **Frontend (Vanilla JS, HTML, CSS)** : Aucune dépendance lourde, pas de TypeScript pour rester simple et modulaire, un design system personnalisé "Glassmorphism Dark" pour un rendu premium.
-*   **FFmpeg** : Stratégie de double disponibilité. L'application vérifie si FFmpeg est présent. S'il ne l'est pas, un bouton permet de le télécharger automatiquement depuis GitHub Releases pour l'embarquer de manière isolée dans le dossier de données de l'application.
+* **Drag & Drop Interface**: Seamlessly drop multiple videos to queue them up.
+* **Premium UI**: Custom "Glassmorphism Dark" aesthetic for a modern feel.
+* **Smart Hardware Acceleration**: Automatically detects and uses the best available hardware encoder (`hevc_videotoolbox` on Mac, `hevc_nvenc` on NVIDIA, `hevc_amf` on AMD, `hevc_qsv` on Intel) for lightning-fast conversions. Falls back to CPU encoding (`libx265`) if no supported GPU is found.
+* **Apple Compatibility**: Injects the `-tag:v hvc1` flag so hardware-encoded HEVC videos from Windows/Linux play natively on iOS and macOS.
+* **Zero-Freeze Progress Tracking**: Parses FFmpeg carriage returns (`\r`) in real-time, delivering buttery-smooth progress bars, speed metrics, and current processing time without ever freezing the UI.
+* **Auto FFmpeg Management**: Checks if FFmpeg is installed. If missing on Windows or macOS, a single click automatically downloads, extracts, and binds a local copy.
 
-## Structure du Projet
+## Technical Stack
+
+*   **Tauri 2**: Lightweight, secure, and highly performant framework.
+*   **Backend (Rust)**: Orchestrates tasks, handles FFmpeg IPC, dynamic hardware detection, and asynchronous stream parsing via `tokio`.
+*   **Frontend (Vanilla JS, HTML, CSS)**: Zero heavy dependencies. Pure Vanilla JavaScript interacting with `window.__TAURI__` APIs to ensure maximum speed and minimal footprint.
+*   **CI/CD**: Fully automated release pipeline via GitHub Actions.
+
+## Project Structure
 
 ```text
 DropHEVC/
-├── package.json             # Dépendances Node.js (Tauri CLI, plugins)
+├── package.json             # Node dependencies (Tauri CLI, plugins)
 ├── src/                     # Frontend Vanilla JS
-│   ├── index.html           # Structure de l'interface
-│   ├── main.js              # Logique UI, gestion de file, événements drag & drop
-│   └── styles.css           # Thème premium sombre
+│   ├── index.html           # Layout structure
+│   ├── main.js              # UI logic, queue management, Drag & Drop
+│   └── styles.css           # Custom dark theme
 └── src-tauri/               # Backend Rust
-    ├── Cargo.toml           # Dépendances Rust (tokio, reqwest, zip, etc.)
-    ├── tauri.conf.json      # Configuration Tauri 2
+    ├── Cargo.toml           # Rust dependencies (tokio, reqwest, zip)
+    ├── tauri.conf.json      # Tauri 2 configuration
     └── src/
-        ├── main.rs          # Point d'entrée
-        ├── lib.rs           # Initialisation Tauri et Plugins
-        ├── commands.rs      # Commandes IPC appelées par le frontend
-        └── ffmpeg.rs        # Logique de détection, téléchargement et lancement de FFmpeg
+        ├── main.rs          # Entry point
+        ├── lib.rs           # Tauri builder and plugin init
+        ├── commands.rs      # IPC commands invoked by frontend
+        └── ffmpeg.rs        # Hardware detection and FFmpeg downloading logic
 ```
 
-## Prérequis
+## Prerequisites
 
-Pour développer ou compiler cette application, vous devez avoir installé :
+To develop or build this application, you will need:
 1.  **Node.js** (v18+)
-2.  **Rust** (via rustup) et Cargo.
+2.  **Rust** (via rustup) & Cargo.
 
-## Installation et Lancement en Dev
+## Development Setup
 
-1. Clonez ce dépôt.
-2. Installez les dépendances npm :
+1. Clone the repository.
+2. Install dependencies:
    ```bash
    npm install
    ```
-3. Lancez l'environnement de développement :
+3. Run the development environment:
    ```bash
    npm run tauri dev
    ```
 
-## Build Desktop
+## Build for Production
 
-Pour créer l'exécutable final (exe, dmg, appimage) :
+To create the final executables (exe, dmg, appimage/deb):
 
 ```bash
 npm run tauri build
 ```
-Les fichiers de sortie seront dans `src-tauri/target/release/bundle/`.
-
-## Où modifier les presets FFmpeg ?
-
-Les paramètres d'encodage (le "preset") sont définis dans le backend Rust, dans le fichier `src-tauri/src/commands.rs`, au sein de la fonction `convert_video`. 
-Cherchez la construction de la commande :
-```rust
-let mut child = Command::new(&ffmpeg_path)
-    .arg("-y")
-    .arg("-i")
-    .arg(&input_path)
-    .arg("-c:v").arg("libx265")
-    .arg("-tag:v").arg("hvc1")
-    .arg("-preset").arg("medium")
-    .arg("-crf").arg("23")
-    .arg("-c:a").arg("copy")
-    ...
-```
-Vous pouvez modifier ces arguments pour ajouter du CRF personnalisé, changer de preset, ou ajouter une accélération matérielle (comme `hevc_nvenc` ou `hevc_videotoolbox`).
+The output files will be located in `src-tauri/target/release/bundle/`. 
+Alternatively, push a tag (e.g., `v1.0.0`) to trigger the GitHub Actions workflow, which will automatically build and publish the binaries for all platforms.
